@@ -1,91 +1,96 @@
 # SelfBio
 
-## Стек
+**A personal website and blog with a bilingual profile and an Orchid admin panel.**
 
-- **Laravel 13**, PHP 8.5 (php-fpm)
-- **Orchid** (единая админка SelfBio и Whodoku)
-- **PostgreSQL**, **Redis** — в Docker, **Mailpit** — локально
-- **Vite + Vue 3** (SPA, компоненты)
-- **Livewire** v4, **Inertia**, сессионный вход Laravel и **Sanctum**
+[Русский](README.ru.md) · [Quick start](#quick-start) · [Administration](#administration) · [License](LICENSE)
 
-## Docker
+![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white) ![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?logo=laravel&logoColor=white) ![Orchid](https://img.shields.io/badge/Admin-Orchid%2014-6366F1) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-| Сервис | Что делает |
-|---|---|
-| `nginx` | отдаёт `public/` (сборку Vite, `storage`) и передаёт запросы в php-fpm; порт `APP_BIND:APP_PORT` (по умолчанию `127.0.0.1:8080`) |
-| `php` | php-fpm с приложением (`docker/php-fpm`, цели `local` с xdebug и `prod`) |
-| `telegram-bot` | тот же образ, `php artisan telegram:poll` — вход через бота |
-| `pgsql`, `redis` | БД, кэш, сессии, очередь |
-| `mailpit` | локально: ловушка писем, http://localhost:8025 |
-| `node` | по требованию: `make build`, `make dev`, `make npm CMD=…` |
+## Overview
 
-Какие compose-файлы собираются, задаёт `COMPOSE_FILE` в `.env`: локально `docker-compose.yml:docker-compose.local.yml`, на проде только `docker-compose.yml` и `PHP_TARGET=prod`.
-Локально бот не запускается сам (с тем же токеном он отбирал бы обновления у прода): `docker compose --profile bot up -d telegram-bot` с токеном тестового бота.
+**SelfBio** is a Laravel application for publishing a personal profile, contact information, and blog posts. The home, about, and contact pages are available in Russian and English. Site content is managed in Orchid.
 
-## Быстрый старт
+[Whodoku](https://github.com/Yatseck-k/whodoku) is a separate Laravel game project.
 
-### 1. Клонируй репозиторий
+## Features
+
+| Area | What it provides |
+| --- | --- |
+| **Profile** | Bilingual home and about pages, with editable skills, technology groups, and section order |
+| **Blog** | Post editing and publication scheduling |
+| **Contacts** | A public contact page with details managed in Orchid |
+| **Administration** | Content, site settings, user accounts, and role management |
+| **SEO** | Page metadata, sitemap, and robots.txt |
+
+## Technology
+
+| Layer | Stack |
+| --- | --- |
+| **Backend** | PHP 8.5, Laravel 13, Livewire 4, Sanctum 4 |
+| **Administration** | Orchid 14 |
+| **Frontend** | Vue 3, Inertia.js 3, Vite 8, Tailwind CSS 4 |
+| **Data and runtime** | PostgreSQL 17, Redis 8, Nginx, PHP-FPM |
+| **Local development** | Docker Compose, Make, Node.js 24, Mailpit |
+
+## Quick start
+
+Requires Git, Docker with Compose, and Make.
 
 ```bash
-git clone https://github.com/Yatseck-k/SelfBio.git
-cd SelfBio
+git clone https://github.com/Yatseck-k/selfbio.git
+cd selfbio
+cp .env.example .env
 ```
 
-### 2. Подними контейнеры
+On Linux, adjust `PUID` and `PGID` in `.env` if they differ from your user and group IDs (`id -u` and `id -g`).
 
 ```bash
-cp .env.example .env        # при другом UID/GID поправь PUID и PGID (id -u, id -g)
-make up                     # первый раз соберёт образ PHP
+make up
 make composer CMD=install
 make npm CMD=ci
-```
-
-### 3. Прогрей миграции и линкни сторидж
-
-```bash
 docker compose exec php php artisan key:generate
 docker compose exec php php artisan migrate
 docker compose exec php php artisan storage:link
 docker compose exec php php artisan db:seed
-```
-
-### 4. Запусти vite для фронтенда
-
-```bash
-make dev
-```
-
-### 5. Создай пользователя для админки
-
-```bash
+make build
 docker compose exec php php artisan orchid:admin
 ```
 
-Открой http://localhost:8080/admin — единую админку SelfBio и Whodoku на Orchid. Если переходишь с MoonShine, выполни `selfbio:import-admins --apply` после создания резервной копии БД.
+Open [the site](http://localhost:8080/), [the admin panel](http://localhost:8080/admin), or [Mailpit](http://localhost:8025/). Use `make dev` to run Vite with live reload during frontend development.
 
-### 6. Название сайта и время публикации
+## Administration
 
-Название сайта (шапки, заголовки вкладок, админка, каталог ремонта) меняется в админке: **Настройки сайта** (`/admin/selfbio/settings`, права `platform.selfbio.settings.view/edit`). Оно сохраняется в базе и действует сразу на всех страницах, пересборка не нужна; кнопка «Вернуть название по умолчанию» возвращает `APP_NAME` из окружения. То же умеет команда: `php artisan site:rename "Моё название"` (`--show`, `--reset`).
+| Section | Settings |
+| --- | --- |
+| **Site settings** (`/admin/selfbio/settings`) | Set the site name or reset it to `APP_NAME` |
+| **Profile content** (`/admin/selfbio/profile`) | Edit Russian and English copy, skills, technology groups, and the order and visibility of sections |
+| **Blog** (`/admin/selfbio/blog`) | Edit posts and schedule publication |
+| **Contacts** (`/admin/selfbio/contacts`) | Update public contact details |
 
-Тексты главной и страницы «Обо мне» на русском и английском редактируются в **Сайт-визитка → Главная и «Обо мне»** (`/admin/selfbio/profile`, те же права). Там же можно менять карточки компетенций, группы технологий, видимость и порядок блоков. Изменения сразу применяются на сайте и в SEO-метаданных. Контакты и статьи редактируются в соседних разделах.
+Site name and profile changes take effect without rebuilding assets. The two screens use the `platform.selfbio.settings.view` and `platform.selfbio.settings.edit` permissions. Blog publication times are entered in `APP_DISPLAY_TIMEZONE` (`Europe/Moscow` by default) and stored in UTC.
 
-Время публикации записей блога в админке вводится по часовому поясу сайта (`APP_DISPLAY_TIMEZONE`, по умолчанию `Europe/Moscow`), в базе хранится UTC.
+Use `docker compose exec php php artisan site:rename --show` to display the site name, replace `--show` with the new name to change it, or use `--reset` to restore `APP_NAME`.
 
-## Полезные команды
+For a database with existing MoonShine administrators, run `php artisan selfbio:import-admins` in the PHP container to preview the import. Back up the database before running the command with `--apply`.
 
-```bash
-make up / make down / make restart   # контейнеры
-make ps / make logs                  # состояние и логи
-make shell                           # bash в контейнере PHP
-make test                            # PHPUnit
-make pint / make pint-test           # стиль кода (только изменённые файлы / проверка)
-make rector / make rector-fix
-make build / make dev                # фронтенд: сборка / Vite
-make composer CMD="update"
-make npm CMD="update"
-make build-images                    # пересобрать образ PHP (после правок docker/php-fpm)
-docker compose exec php php artisan pail   # живой лог Laravel
-```
+## Development commands
 
-## Лицензия
-MIT
+| Command | What it does |
+| --- | --- |
+| `make up`, `make down`, `make restart` | Manage the containers |
+| `make ps`, `make logs`, `make shell` | Check service status, follow logs, or open a shell in the PHP container |
+| `make build`, `make dev` | Build assets or run the Vite development server |
+| `make test` | Run Laravel tests using the local testing database |
+| `make pint`, `make pint-test` | Format changed PHP files or check code style |
+| `make rector`, `make rector-fix` | Preview or apply Rector changes |
+| `make build-images` | Rebuild the PHP image |
+
+Run Composer and npm commands with `make composer CMD="…"` and `make npm CMD="…"`. Use `docker compose exec php php artisan pail` to follow Laravel logs.
+
+## Docker configuration
+
+The local `.env.example` combines [`docker-compose.yml`](docker-compose.yml) with [`docker-compose.local.yml`](docker-compose.local.yml). The local override adds Mailpit and exposes the database and Redis ports on loopback. The PHP image also has a production target selected with `PHP_TARGET=prod` when using the base Compose file.
+
+## License
+
+[MIT](LICENSE).
